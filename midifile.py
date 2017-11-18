@@ -1,4 +1,5 @@
 from struct import pack
+from midilib.midi_exceptions import *
 
 
 class Header:
@@ -6,6 +7,12 @@ class Header:
      i.e 'MThd', length, file format, number of tracks in file and Pulses Per Quarter Note(PPQN)
      """
     def __init__(self, file_format, ntracks, ppqn):
+        if file_format not in [0, 1, 2]:
+            raise MidiError(file_format, 'Wrong file format')
+        if file_format == 0 and ntracks != 1:
+            raise MidiError(file_format, 'Format 0 has only 1 track')
+        if ntracks >= 15:
+            raise MidiError(file_format, '16 tracks is maximum for SMF( 1 track for each channel)')
         self.mthd = b'MThd'
         self.length = 6
         self.file_format = file_format
@@ -15,7 +22,7 @@ class Header:
     def to_hex(self):
         """Get bytes representation of the Header"""
         mthd = self.mthd
-        params = pack('>LHHH', self.length, self.file_format, self.ntracks, self.tickdiv)
+        params = pack('>LHHH', self.length, self.file_format, self.ntracks, self.ppqn)
         return mthd+params
 
     def __str__(self):
@@ -27,6 +34,8 @@ class Event:
     delta time is a part of each event, also all events have status byte and some portion of data
     """
     def __init__(self, delta_time, status, data=[]):
+        if not (0 <= delta_time <= 4294967167):
+            raise MidiError(delta_time, ' Wrong delta time value')
         self.delta_time = delta_time
         self.status = status
         self.data = self.str_to_int(data[:])
@@ -51,7 +60,7 @@ class Event:
 
     @staticmethod
     def variable_len(time_or_len):
-        """Convert int delta time of length to variable length quantity ( 1-4 bytes)
+        """Convert int delta time or length to variable length quantity ( 1-4 bytes)
         """
         n = time_or_len
         variable_length = [n & 0x7f]
@@ -75,11 +84,15 @@ class MidiEvent(Event):
     """Class MidiEvent describes, obviously, a midievent such as 'Note on' or 'Note off'
     """
     def __init__(self, delta_time, status, channel_number=0, data=[]):
-        assert 0 <= channel_number <= 15, 'Wrong channel number'
-        assert status in StatusBytes.midi, 'Wrong status byte'
-        assert not((status in [192, 223] and len(data) != 1) or (status not in [192, 223] and len(data) != 2)), 'Data not corresponding to event'
-        assert max(data) <= 127, 'Wrong data'
-        Event.__init__(self, delta_time=delta_time, status=status + channel_number, data=data)
+        if not (0 <= channel_number <= 15):
+            raise ChannelError(channel_number)
+        if status not in StatusBytes.midi:
+            raise StatusError(status)
+        if (status in [192, 223] and len(data) != 1) or (status not in [192, 223] and len(data) != 2):
+            raise DataLengthError(data)
+        if max(data) > 127:
+            raise DataError(data)
+        super().__init__(delta_time=delta_time, status=status + channel_number, data=data)
 
     def __str__(self):
         tup = self.delta_time, self.status, self.data, self.get_event_type
@@ -96,8 +109,10 @@ class SysExEvent(Event):
     unlike to class Event  has a field length
     """
     def __init__(self, delta_time=0, status=240, data=[]):
-        assert status in StatusBytes.sysex, 'Wrong status byte'
-        Event.__init__(self, delta_time=delta_time, status=status, data=data[:])
+        if status not in StatusBytes.sysex:
+            raise StatusError(status)
+
+        super().__init__(delta_time=delta_time, status=status, data=data[:])
         self.length = len(self.data)
         self.event = [
                         Event.variable_len(self.delta_time),
@@ -121,8 +136,10 @@ class MetaEvent(Event):
     unlike to class Event  has a fields length and event type
     """
     def __init__(self, event_type, delta_time=0, data=[]):
-        assert event_type in StatusBytes.meta, 'Wrong event type'
-        Event.__init__(self, delta_time=delta_time, status=255, data=data[:])
+        if event_type not in StatusBytes.meta:
+            raise MidiError(event_type, 'Wrong event type for Meta event')
+
+        super().__init__(delta_time=delta_time, status=255, data=data[:])
         self.event_type = event_type
         self.length = len(self.data)
         self.event = [
@@ -147,15 +164,17 @@ class Track:
     """Class Track describes midi track,
      in general class Track consists of Event's list and track header
     """
-    def __init__(self, events, running_status_mode=True):
+    def __init__(self, events=[], running_status_mode=True):
         """header - 'MTrk'
         events - list of events, for example [MidiEvent, MetaEvent,...]
         running status mode - default running status is one(True)
         length - data length
         bytes - bytes representation of events list
         """
+        if not events:
+            raise MidiError(events, 'Events list is empty')
         self.header = b'MTrk'
-        self.events = events
+        self.events = events[:]
         self.running_status_mode = running_status_mode
         self.length, self.bytes = self.length_and_bytes()
 
@@ -212,12 +231,16 @@ class Track:
 
 class MidiFormat:
     """Class MidiFormat describes Standard Midi File,
-    in general MidiFormat consists of Tracks list and Header
+    in general, MidiFormat consists of Tracks list and Header
     """
     def __init__(self, header, tracks=[]):
         """header - instance of class Header
         tracks - list of Tracks
         """
+        if not header:
+            raise MidiError(header, 'Header is empty')
+        if not tracks:
+            raise MidiError(tracks, 'Tracks list is empty')
         self.header = header
         self.tracks = tracks[:]
 
@@ -253,9 +276,10 @@ class StatusBytes:
 if __name__ == '__main__':
     e = []
     for i in range(10):
-        e.append(MidiEvent(127, 144, 9, [i, 127]))
+        e.append(MidiEvent(1270000, 144, 9, [i, 127]))
         e.append(MidiEvent(127, 144, 9, [i, 0]))
-    e.append(MetaEvent(47, 0))
+        e.append((SysExEvent(127, 240, [0,1,1])))
+    #e.append(MetaEvent(47, 0))
     print(len(e))
     t = Track(e, 1)
     print(t)

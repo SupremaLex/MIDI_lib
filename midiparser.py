@@ -1,5 +1,4 @@
-from struct import unpack
-
+from struct import unpack, error
 from midilib.midifile import *
 
 
@@ -16,7 +15,7 @@ class MidiParser:
     def __read_header(self):
         """Read SMF header"""
         mthd = self.file.read(8)
-        if mthd and mthd[:4] != b'MThd':
+        if mthd and mthd[:4] == b'MThd':
             file_format, ntracks, ppqn = unpack('>HHH', self.file.read(6))
             header = Header(file_format=file_format, ntracks=ntracks, ppqn=ppqn)
             return header
@@ -51,7 +50,7 @@ class MidiParser:
         return event
 
     def __read_midi_event_data(self, status):
-        """Read data of mide event"""
+        """Read data of midi event"""
         if 192 <= status <= 223:
             length = 1
         else:
@@ -91,26 +90,32 @@ class MidiParser:
 
     def read_all(self):
         """Read all SMF data, if it is correct"""
-        # read SMF header
-        header = self.__read_header()
-        tracks = []
-        # read all tracks
-        for cnt in range(header.ntracks):
-            track = self.__read_track()
-            tracks.append(track)
-        # create a MidiFormat object
-        file = MidiFormat(header=header, tracks=tracks)
-        self.file.close()
-        return file
+        import struct
+        try:
+            # read SMF header
+            header = self.__read_header()
+            tracks = []
+            # read all tracks
+            for cnt in range(header.ntracks):
+                track = self.__read_track()
+                tracks.append(track)
+            # create a MidiFormat object
+            file = MidiFormat(header=header, tracks=tracks)
+            return file
+        finally:
+            self.file.close()
 
     def __read_var_len(self):
         """Read variable bytes quantity, i.e. delta time of length"""
         byte = []
-        for cnt in range(4):
-            b = unpack('>B', self.file.read(1))[0]
-            byte.append(b)
-            if b <= 127:
-                break
+        try:
+            for cnt in range(4):
+                b = unpack('>B', self.file.read(1))[0]
+                byte.append(b)
+                if b <= 127:
+                    break
+        except error:
+            raise ValueError('EOT event was expected')
         return MidiParser.__variable_len(byte)
 
     @staticmethod
@@ -123,4 +128,6 @@ class MidiParser:
         return output
 
 # TODO checking for exceptions
-
+f = open('second.mid', 'rb')
+p = MidiParser(f)
+pp = p.read_all()

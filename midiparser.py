@@ -90,7 +90,6 @@ class MidiParser:
 
     def read_all(self):
         """Read all SMF data, if it is correct"""
-        import struct
         try:
             # read SMF header
             header = self.__read_header()
@@ -131,3 +130,4 @@ class MidiParser:
 f = open('second.mid', 'rb')
 p = MidiParser(f)
 pp = p.read_all()
+

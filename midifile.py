@@ -7,6 +7,14 @@ class Header:
      i.e 'MThd', length, file format, number of tracks in file and Pulses Per Quarter Note(PPQN)
      """
     def __init__(self, file_format, ntracks, ppqn):
+        """
+        :param file_format: SMF type
+        :param ntracks: number of tracks
+        :param ppqn: tempo
+        :type file_format: int
+        :type ntracks: int
+        :type ppqn: int
+        """
         if file_format not in [0, 1, 2]:
             raise MidiError(file_format, 'Wrong file format')
         if file_format == 0 and ntracks != 1:
@@ -20,7 +28,10 @@ class Header:
         self.ppqn = ppqn
 
     def to_hex(self):
-        """Get bytes representation of the Header"""
+        """Get bytes representation of the Header
+        :return: header converted to bytes
+        :rtype: bytes str (b'')
+        """
         mthd = self.mthd
         params = pack('>LHHH', self.length, self.file_format, self.ntracks, self.ppqn)
         return mthd+params
@@ -34,6 +45,15 @@ class Event:
     delta time is a part of each event, also all events have status byte and some portion of data
     """
     def __init__(self, delta_time, status, data=[]):
+        """
+        :param status: event status byte
+        :param delta_time: delta time
+        :param data: data of the event, default = []
+        :type status: int (byte)
+        :type delta_time: int
+        :type channel_number: int (0..15)
+        :type data: list
+        """
         if not (0 <= delta_time <= 4294967167):
             raise MidiError(delta_time, ' Wrong delta time value')
         self.delta_time = delta_time
@@ -47,6 +67,8 @@ class Event:
 
     def to_hex(self):
         """Get bytes representation of event
+        :return Event converted to bytes string
+        :rtype: bytes str (b'')
         """
         b = b''.join(map(bytes, self.event))
         return b
@@ -54,6 +76,10 @@ class Event:
     @staticmethod
     def str_to_int(data_with_str):
         """Converting all str data to int data
+        :param data_with_str: some data with str values
+        :type data_with_str: list
+        :return data without str values
+        :rtype: list
         """
         data = list(map(lambda x: ord(x) if isinstance(x, str) else x, data_with_str))
         return data
@@ -61,6 +87,10 @@ class Event:
     @staticmethod
     def variable_len(time_or_len):
         """Convert int delta time or length to variable length quantity ( 1-4 bytes)
+        :param time_or_len: delta time or length of event value
+        :type time_or_len: int
+        :return: converted to variable length quantity int value
+        :rtype: bytes str (b'')
         """
         n = time_or_len
         variable_length = [n & 0x7f]
@@ -84,6 +114,16 @@ class MidiEvent(Event):
     """Class MidiEvent describes, obviously, a midievent such as 'Note on' or 'Note off'
     """
     def __init__(self, delta_time, status, channel_number=0, data=[]):
+        """
+        :param status: Midi event status byte
+        :param delta_time: delta time
+        :param channel_number: number of channel, default = 0
+        :param data: data of the event, default = []
+        :type status: int (byte)
+        :type delta_time: int
+        :type channel_number: int (0..15)
+        :type data: list
+        """
         if not (0 <= channel_number <= 15):
             raise ChannelError(channel_number)
         if status not in StatusBytes.midi:
@@ -101,6 +141,10 @@ class MidiEvent(Event):
 
     @property
     def get_event_type(self):
+        """
+        :return: Midi event type
+        :rtype: str
+        """
         return StatusBytes.midi[self.status & 240]
 
 
@@ -109,6 +153,14 @@ class SysExEvent(Event):
     unlike to class Event  has a field length
     """
     def __init__(self, delta_time=0, status=240, data=[]):
+        """
+        :param status: System exclusive event status byte, default = 240
+        :param delta_time: delta time, default = 0
+        :param data: data of the event, default = []
+        :type status: int (byte)
+        :type delta_time: int
+        :type data: list
+        """
         if status not in StatusBytes.sysex:
             raise StatusError(status)
 
@@ -128,6 +180,10 @@ class SysExEvent(Event):
 
     @property
     def get_event_type(self):
+        """
+        :return: System exclusive message type
+        :rtype: str
+        """
         return StatusBytes.sysex[self.status]
 
 
@@ -136,6 +192,14 @@ class MetaEvent(Event):
     unlike to class Event  has a fields length and event type
     """
     def __init__(self, event_type, delta_time=0, data=[]):
+        """
+        :param event_type: type of meta event
+        :param delta_time: delta time, default = 0
+        :param data: data of the event, default = []
+        :type event_type: int (byte)
+        :type delta_time: int
+        :type data: list
+        """
         if event_type not in StatusBytes.meta:
             raise MidiError(event_type, 'Wrong event type for Meta event')
 
@@ -157,6 +221,10 @@ class MetaEvent(Event):
 
     @property
     def get_event_type(self):
+        """
+        :return: Meta event type
+        :rtype: str
+        """
         return StatusBytes.meta[self.event_type]
 
 
@@ -165,11 +233,11 @@ class Track:
      in general class Track consists of Event's list and track header
     """
     def __init__(self, events=[], running_status_mode=True):
-        """header - 'MTrk'
-        events - list of events, for example [MidiEvent, MetaEvent,...]
-        running status mode - default running status is one(True)
-        length - data length
-        bytes - bytes representation of events list
+        """
+        :param events: list of the Event's, default = []
+        :param running_status_mode: running status mode on/off; default = True
+        :type events: list[Event]
+        :type running_status_mode: bool
         """
         if not events:
             raise MidiError(events, 'Events list is empty')
@@ -180,6 +248,8 @@ class Track:
 
     def to_hex(self):
         """Get bytes representation of track
+        :return:
+        :rtype: bytes str (b'')
         """
         header = self.header
         length = pack('>L', self.length)
@@ -189,6 +259,8 @@ class Track:
     def length_and_bytes(self):
         """Because of the variable length value, we can not specify the length of the track without converting
         events list to a byte string
+        :return: bytes representation of event's list and it's length
+        :rtype: int, bytes str (b'')
         """
         if self.running_status_mode:
             byte_string = self.running_status()
@@ -199,6 +271,8 @@ class Track:
     def running_status(self):
         """To save memory we can use a trick, calling 'running status', it means, that if several MidiEvent
         if several MidiEvent's with the same status byte are in progress, status byte required only for first event
+        :return: the resulting bytes representation of Midi events in running status mode
+        :rtype bytes str (b'')
         """
         byte_string = self.events[0].to_hex()   # get first event
         current_status = self.events[0].status  # get first event status
@@ -234,8 +308,11 @@ class MidiFormat:
     in general, MidiFormat consists of Tracks list and Header
     """
     def __init__(self, header, tracks=[]):
-        """header - instance of class Header
-        tracks - list of Tracks
+        """
+        :param header: midi header
+        :param tracks: tracks of SMF
+        :type header: Header
+        :type tracks: list(Track)
         """
         if not header:
             raise MidiError(header, 'Header is empty')
@@ -246,6 +323,8 @@ class MidiFormat:
 
     def to_hex(self):
         """Get bytes representation of MidiFormat
+        :return: converted to bytes file
+        :rtype: bytes str (b'')
         """
         header = self.header.to_hex()
         tracks = b''.join(map(Track.to_hex, self.tracks))

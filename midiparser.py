@@ -8,12 +8,17 @@ class MidiParser:
     Don't close a file yourself, read_all method do this for you
     """
     def __init__(self, file):
-        """file - file object, such as open(filename, 'rb')
+        """
+        :param file: file object, such as open(filename, 'rb')
+        :type file: IO
         """
         self.file = file
 
     def __read_header(self):
-        """Read SMF header"""
+        """Read SMF header
+        :return: converted from bytes SMF header
+        :rtype: Header
+        """
         mthd = self.file.read(8)
         if mthd and mthd[:4] == b'MThd':
             file_format, ntracks, ppqn = unpack('>HHH', self.file.read(6))
@@ -22,7 +27,11 @@ class MidiParser:
         raise ValueError("Wrong format of file")
 
     def __read_event(self, current_event):
-        """Read MIDI Event"""
+        """Read MIDI Event
+        :param current_event: current event
+        :type current_event: Event
+        :return: converted from bytes event
+        :rtype: Event"""
         # from variable bytes length quantity to delta time
         delta_time = self.__read_var_len()
         # get status byte, i.e. MIDI event type (MIDI event, SysEx event, Meta event)
@@ -50,7 +59,12 @@ class MidiParser:
         return event
 
     def __read_midi_event_data(self, status):
-        """Read data of midi event"""
+        """Read data of midi event
+        :param status: midi event status byte
+        :type status: int (byte)
+        :return: midi event data
+        :rtype: list
+        """
         if 192 <= status <= 223:
             length = 1
         else:
@@ -59,20 +73,30 @@ class MidiParser:
         return data
 
     def __read_sysex_event_data(self):
-        """Read data of SysEx event"""
+        """Read data of SysEx event
+        :return: system exclusive event data
+        :rtype: list
+        """
         length = self.__read_var_len()
         data = list(self.file.read(length))
         return length, data
 
     def __read_meta_event_data(self):
-        """Read data of Meta event"""
+        """Read data of Meta event
+        :return: meta event data
+        :rtype: list
+        """
         event_type = unpack('>B', self.file.read(1))[0]
         length = self.__read_var_len()
         data = list(self.file.read(length))
         return event_type, length, data
 
     def __read_track(self):
-        """Read track"""
+        """Read track
+        :return: converted from bytes Track
+        :rtype: Track
+        :raise ValueError: Wrong format of file
+        """
         # read  track header
         hdr = self.file.read(8)
         if hdr:     # if some problems with header - raise error
@@ -89,7 +113,9 @@ class MidiParser:
         raise ValueError('Wrong format of file')
 
     def read_all(self):
-        """Read all SMF data, if it is correct"""
+        """Read all SMF data, if it is correct
+        :return: converted from bytes SMF
+        :rtype: MidiFormat"""
         try:
             # read SMF header
             header = self.__read_header()
@@ -105,7 +131,11 @@ class MidiParser:
             self.file.close()
 
     def __read_var_len(self):
-        """Read variable bytes quantity, i.e. delta time of length"""
+        """Read variable bytes quantity, i.e. delta time of length
+        :return: data  variable length quantity
+        :rtype: list(int)
+        :raise ValueError: EOT event was expected
+        """
         byte = []
         try:
             for cnt in range(4):
@@ -119,15 +149,16 @@ class MidiParser:
 
     @staticmethod
     def __variable_len(array):
-        """Transform variable bytes quantity length to length"""
+        """Transform variable bytes quantity length to length
+        :param array: variable length bytes list
+        :type: list
+        :return: converted from variable length quantity value
+        :rtype: int
+        """
         output = 0
         for n in array:
             output = output << 7
             output |= n & 0x7f
         return output
 
-# TODO checking for exceptions
-f = open('second.mid', 'rb')
-p = MidiParser(f)
-pp = p.read_all()
 

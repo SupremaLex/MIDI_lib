@@ -21,8 +21,8 @@ class StatusError(MidiError):
 
 
 class ChannelError(MidiError):
-    def __init__(self, channelnumber):
-        super().__init__(channelnumber, 'Wrong channel number')
+    def __init__(self, channel_number):
+        super().__init__(channel_number, 'Wrong channel number')
 
 
 class DataError(MidiError):

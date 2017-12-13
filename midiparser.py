@@ -1,5 +1,10 @@
 from struct import unpack, error
-from midilib.midifile import *
+from .midifile import StandardMIDIFile
+from .header import Header
+from .track import Track
+from .meta_event import MetaEvent
+from .midi_event import MidiEvent
+from .system_exclusive_message import SysExEvent
 
 
 class MidiParser:
@@ -126,7 +131,7 @@ class MidiParser:
                 track = self.__read_track()
                 tracks.append(track)
             # create a MidiFormat object
-            file = MidiFormat(header=header, tracks=tracks)
+            file = StandardMIDIFile(header=header, tracks=tracks)
             return file
         finally:
             self.file.close()

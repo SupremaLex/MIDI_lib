@@ -14,6 +14,9 @@ class Header:
         :type file_format: int
         :type ntracks: int
         :type ppqn: int
+        :raise MidiError: Wrong file format
+        :raise MidiError: Format 0 has only 1 track
+        :raise MidiError: 16 tracks is maximum for SMF( 1 track for each channel)
         """
         if file_format not in [0, 1, 2]:
             raise MidiError(file_format, 'Wrong file format')
@@ -51,8 +54,8 @@ class Event:
         :param data: data of the event, default = []
         :type status: int (byte)
         :type delta_time: int
-        :type channel_number: int (0..15)
         :type data: list
+        :raise MidiError: Wrong delta time value
         """
         if not (0 <= delta_time <= 4294967167):
             raise MidiError(delta_time, ' Wrong delta time value')
@@ -123,6 +126,10 @@ class MidiEvent(Event):
         :type delta_time: int
         :type channel_number: int (0..15)
         :type data: list
+        :raise ChannelError: Wrong channel number
+        :raise StatusError: Wrong status byte
+        :raise DataLengthError: Data not corresponding to event type
+        :raise DataError: Wrong data
         """
         if not (0 <= channel_number <= 15):
             raise ChannelError(channel_number)
@@ -160,6 +167,7 @@ class SysExEvent(Event):
         :type status: int (byte)
         :type delta_time: int
         :type data: list
+        :raise StatusError: Wrong status byte
         """
         if status not in StatusBytes.sysex:
             raise StatusError(status)
@@ -199,6 +207,7 @@ class MetaEvent(Event):
         :type event_type: int (byte)
         :type delta_time: int
         :type data: list
+        :raise  MidiError: Wrong event type for Meta event
         """
         if event_type not in StatusBytes.meta:
             raise MidiError(event_type, 'Wrong event type for Meta event')
@@ -232,12 +241,13 @@ class Track:
     """Class Track describes midi track,
      in general class Track consists of Event's list and track header
     """
-    def __init__(self, events=[], running_status_mode=True):
+    def __init__(self, events, running_status_mode=True):
         """
-        :param events: list of the Event's, default = []
+        :param events: list of the Event's
         :param running_status_mode: running status mode on/off; default = True
         :type events: list[Event]
         :type running_status_mode: bool
+        :raise MidiError: Events list is empty
         """
         if not events:
             raise MidiError(events, 'Events list is empty')

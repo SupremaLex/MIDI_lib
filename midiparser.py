@@ -18,6 +18,7 @@ class MidiParser:
         """Read SMF header
         :return: converted from bytes SMF header
         :rtype: Header
+        :raise ValueError: Wrong format of file
         """
         mthd = self.file.read(8)
         if mthd and mthd[:4] == b'MThd':
